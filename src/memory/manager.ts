@@ -188,7 +188,11 @@ export class MemoryManager {
    * Generate an episodic memory entry from conversation history.
    * Called before /clear or /new wipes the session.
    */
-  async summarizeSession(conversationId: string, workspacesDir: string): Promise<void> {
+  async summarizeSession(
+    conversationId: string,
+    workspacesDir: string,
+    opts?: { background?: boolean }
+  ): Promise<void> {
     const sanitized = conversationId.replace(/:/g, '_');
     const historyDir = join(workspacesDir, sanitized, '.neoclaw', '.history');
 
@@ -258,15 +262,19 @@ export class MemoryManager {
     const truncated = transcript.length > maxChars ? transcript.slice(-maxChars) : transcript;
     const rawChars = transcript.length;
     const truncatedChars = truncated.length;
-    const summaryTimeoutSecs = loadConfig().agent.summaryTimeoutSecs ?? 300;
+    const config = loadConfig();
+    const summaryTimeoutSecs = config.agent.summaryTimeoutSecs ?? 300;
+    const summaryModel = opts?.background
+      ? (config.agent.backgroundSummaryModel ?? 'haiku')
+      : config.agent.summaryModel;
     const startedAt = Date.now();
 
     log.info(
-      `Summarizing session "${conversationId}": rawChars=${rawChars}, truncatedChars=${truncatedChars}, timeoutSecs=${summaryTimeoutSecs}`
+      `Summarizing session "${conversationId}": rawChars=${rawChars}, truncatedChars=${truncatedChars}, timeoutSecs=${summaryTimeoutSecs}, model=${summaryModel ?? 'haiku'}, mode=${opts?.background ? 'background' : 'foreground'}`
     );
 
     try {
-      const summaryMd = await summarizeTranscript(truncated);
+      const summaryMd = await summarizeTranscript(truncated, { model: summaryModel });
 
       // Write to episodes/ directory
       const episodesDir = join(this.memoryDir, 'episodes');

@@ -769,7 +769,7 @@ export class ClaudeCodeAgent implements Agent {
       model: this.opts.model,
       allowedTools: this.opts.allowedTools,
       systemPrompt: this.opts.systemPrompt ?? null,
-      cwd: this._conversationCwd(conversationId),
+      cwd: workspaceDir,
       resumeSessionId,
       // Inject routing context so CLI tools (e.g. neoclaw-cron) know the current chat
       extraEnv: { NEOCLAW_CHAT_ID: chatId, NEOCLAW_GATEWAY_KIND: gatewayKind },

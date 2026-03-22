@@ -20,6 +20,8 @@ export interface AgentConfig {
   model?: string;
   /** Model used for session summarization. Default: ANTHROPIC_SMALL_FAST_MODEL or haiku. */
   summaryModel?: string;
+  /** Model used by background summarization jobs (e.g. /new, /clear). Default: haiku. */
+  backgroundSummaryModel?: string;
   /** Extra system prompt appended to the agent's default prompt. */
   systemPrompt?: string;
   /**
@@ -103,6 +105,7 @@ export const DEFAULTS: NeoClawConfig = {
     type: 'claude_code',
     model: 'sonnet',
     summaryModel: 'haiku',
+    backgroundSummaryModel: 'haiku',
     summaryTimeoutSecs: 300,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     allowedTools: [],
@@ -162,6 +165,11 @@ export function loadConfig(): NeoClawConfig {
       type: str('NEOCLAW_AGENT_TYPE', file.agent?.type, DEFAULTS.agent.type),
       model: opt('NEOCLAW_MODEL', file.agent?.model),
       summaryModel: opt('NEOCLAW_SUMMARY_MODEL', file.agent?.summaryModel),
+      backgroundSummaryModel: str(
+        'NEOCLAW_BACKGROUND_SUMMARY_MODEL',
+        file.agent?.backgroundSummaryModel,
+        DEFAULTS.agent.backgroundSummaryModel ?? 'haiku'
+      ),
       summaryTimeoutSecs: num(
         'NEOCLAW_SUMMARY_TIMEOUT_SECS',
         file.agent?.summaryTimeoutSecs,
