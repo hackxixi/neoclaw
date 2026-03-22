@@ -9,8 +9,9 @@ import { loadConfig } from '../config.js';
 
 const DEFAULT_SUMMARY_TIMEOUT_SECS = 300;
 
-/** Model priority: config.agent.summaryModel > ANTHROPIC_SMALL_FAST_MODEL > haiku default. */
-function getSummaryModel(): string {
+/** Model priority: explicit override > config.agent.summaryModel > ANTHROPIC_SMALL_FAST_MODEL > haiku default. */
+function getSummaryModel(explicitModel?: string): string {
+  if (explicitModel) return explicitModel;
   try {
     const config = loadConfig();
     if (config.agent.summaryModel) return config.agent.summaryModel;
@@ -63,25 +64,44 @@ tags: [<comma-separated relevant tags>]
 Transcript:
 `;
 
-export async function summarizeTranscript(transcript: string): Promise<string> {
-  const model = getSummaryModel();
+export async function summarizeTranscript(
+  transcript: string,
+  opts?: { model?: string }
+): Promise<string> {
+  const model = getSummaryModel(opts?.model);
   const timeoutMs = getSummaryTimeoutMs();
   const prompt = SUMMARIZE_PROMPT + transcript;
   const env = { ...process.env };
   delete env['CLAUDECODE'];
   delete env['CLAUDE_CODE_ENTRYPOINT'];
 
-  const result = Bun.spawnSync(['claude', '--model', model, '-p', prompt], {
+  const proc = Bun.spawn(['claude', '--model', model, '-p', prompt], {
     stdout: 'pipe',
     stderr: 'pipe',
     env,
-    timeout: timeoutMs,
   });
 
-  if (result.exitCode !== 0) {
-    const stderr = result.stderr.toString().trim();
-    throw new Error(`Claude CLI failed (exit ${result.exitCode}): ${stderr}`);
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    if (!proc.killed) proc.kill();
+  }, timeoutMs);
+
+  const [exitCode, stdout, stderr] = await Promise.all([
+    proc.exited,
+    proc.stdout ? new Response(proc.stdout).text() : Promise.resolve(''),
+    proc.stderr ? new Response(proc.stderr).text() : Promise.resolve(''),
+  ]);
+
+  clearTimeout(timeout);
+
+  if (timedOut) {
+    throw new Error(`Claude CLI timed out after ${Math.round(timeoutMs / 1000)}s`);
   }
 
-  return result.stdout.toString().trim();
+  if (exitCode !== 0) {
+    throw new Error(`Claude CLI failed (exit ${exitCode}): ${stderr.trim()}`);
+  }
+
+  return stdout.trim();
 }

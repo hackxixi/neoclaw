@@ -208,11 +208,11 @@ export class Dispatcher {
     switch (name) {
       case 'clear':
       case 'new': {
-        // Generate session summary before clearing (best-effort, non-blocking on failure)
+        // Fire-and-forget session summary so /clear and /new respond immediately.
         if (this._memoryManager && this._workspacesDir) {
-          await this._memoryManager
-            .summarizeSession(key, this._workspacesDir)
-            .catch((err) => log.warn(`Failed to summarize session: ${err}`));
+          void this._memoryManager
+            .summarizeSession(key, this._workspacesDir, { background: true })
+            .catch((err) => log.warn(`Failed to summarize session in background: ${err}`));
         }
         const agent = this._getAgent();
         await agent.clearConversation(key);
